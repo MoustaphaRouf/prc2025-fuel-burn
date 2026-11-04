@@ -1,0 +1,12 @@
+version,file,rmse_kg,matched_rows,note
+v1,honorable-yogurt_v1.parquet,272.1,,
+v2,honorable-yogurt_v2.parquet,274.6,,
+v3,honorable-yogurt_v3.parquet,262.0,,best submission; code not preserved
+v4,honorable-yogurt_v4.parquet,264.5,24278,
+v5,honorable-yogurt_v5.parquet,264.5,,
+v6,honorable-yogurt_v6.parquet,263.8,,reproduced by this repository
+v7,honorable-yogurt_v7.parquet,267.3,,
+v8,honorable-yogurt_v8.parquet,265.5,,
+v9,honorable-yogurt_v9.parquet,267.4,,
+v10,honorable-yogurt_v10.parquet,299.3,,
+v11,honorable-yogurt_v11.parquet,282.0,,

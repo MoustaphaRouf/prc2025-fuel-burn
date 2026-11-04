@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prcfuel"
+version = "0.1.0"
+description = "Fuel burn per flight interval from ADS-B trajectories (PRC Data Challenge 2025, submission v6)"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Moustapha Amadou Roufaï" }]
+requires-python = ">=3.10"
+dependencies = ["numpy", "pandas", "pyarrow", "scikit-learn>=1.4", "xgboost>=2.0"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
