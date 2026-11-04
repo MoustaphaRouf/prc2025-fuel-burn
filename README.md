@@ -1,6 +1,7 @@
 # Fuel burn per flight interval from ADS-B trajectories (PRC Data Challenge 2025)
 
 [![tests](https://github.com/MoustaphaRouf/prc2025-fuel-burn/actions/workflows/ci.yml/badge.svg)](https://github.com/MoustaphaRouf/prc2025-fuel-burn/actions/workflows/ci.yml)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MoustaphaRouf/prc2025-fuel-burn/blob/main/notebooks/reproduce_colab.ipynb)
 
 The [EUROCONTROL PRC Data Challenge 2025](https://doi.org/10.59490/joas.2026.8750) asked participants to estimate
 the fuel burnt by a flight over a given time interval [start, end], from its OpenSky ADS-B trajectory, the flight
