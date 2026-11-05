@@ -41,7 +41,7 @@ RMSE of each submitted file, recomputed after the challenge against the publishe
 ## Diagnosis: 177 kg in validation, 263.8 kg in ranking
 
 The v6 notebook reported a validation RMSE of 177.2 kg (R² 0.959). The same model scored 263.8 kg on the ranking
-set, 49 % worse. Reading the code back, the validation had several leaks, each of which makes it optimistic:
+set, 49 % worse. Reading the code back, the validation had leaks that make it optimistic:
 
 1. **Row-level random split.** `train_test_split` shuffled intervals, so intervals of the same flight sat on both
    sides. Within a flight, consecutive intervals share the aircraft, route, weight and weather: the model was
@@ -50,31 +50,35 @@ set, 49 % worse. Reading the code back, the validation had several leaks, each o
    number of trees was chosen on the test data.
 3. **Ranking features clipped with their own quantiles.** Outlier clipping (99th percentile) was fitted separately
    on train and ranking data instead of reusing the training thresholds.
-4. **Training target filtered.** Intervals with fuel ≥ 10,000 kg were removed before the split, so validation never
-   saw them, while the ranking set may contain them.
-5. **Unrecorded fallback.** The model produced 23,899 predictions, fewer than the ranking intervals (24,289 in the
+4. **Unrecorded fallback.** The model produced 23,899 predictions, fewer than the ranking intervals (24,289 in the
    ground truth); how the gap was filled in the submitted file is unknown.
 
+Removing intervals with fuel ≥ 10,000 kg from training, on the other hand, was justified: `fuel_train` contains a
+few aberrant labels (with them, the grouped validation RMSE rises to tens of thousands of kg), while the ranking
+ground truth has none.
+
+### Measured
+
+Run in Colab on 5 November 2026, from the v6 feature files saved during the competition:
+
+| Estimate | RMSE (kg) |
+|---|---|
+| Original notebook, row-level split, early stopping on validation | 177.2 |
+| This repository, same procedure | 179.9 |
+| **This repository, 5-fold cross-validation grouped by flight**, intervals < 10,000 kg | **230.7 ± 20.2** (folds: 226.2, 265.0, 228.5, 222.6, 211.4) |
+| Official v6 submission, ranking set | 263.8 |
+| This repository, v6 procedure scored on the ranking set | 265.2 |
+
+The refactor reproduces the v6 ranking score to within 1.4 kg; the remaining gap is consistent with the different
+fallback for the 131 intervals without trajectory points.
+
+Grouping by flight closes about 60 % of the gap between validation and ranking (51 of 85 kg): the row-level split
+was the main source of optimism. The remaining 35 kg are not explained by this run. Plausible causes, not tested
+here: the ranking flights come from a later period than the training flights, ranking features were clipped with
+their own quantiles, and the 131 fallback intervals.
+
 Later versions (v7 to v11) did not improve the ranking score, which is what one expects when changes are judged on
-a leaky validation set.
-
-`model.grouped_cv` gives the corrected estimate: folds grouped by flight, clipping thresholds and target encoders
-fitted on the training fold only, early stopping on an inner flight-grouped split, and validation on every interval.
-`model.reproduce_v6` keeps the original procedure for comparison.
-
-## Status
-
-The code is a faithful refactor of the v6 notebook, tested on synthetic trajectories in CI, and was run on the
-challenge data in Colab on 5 November 2026 from the v6 feature files saved during the competition:
-
-| | Original notebook | This repository |
-|---|---|---|
-| Validation RMSE, row-level split (kg) | 177.2 | 179.9 |
-| Ranking RMSE (kg) | 263.8 (official) | 265.2 |
-
-The refactor reproduces the v6 score to within 1.4 kg (0.5 %). The remaining gap is expected: the 131 intervals
-without trajectory points are filled by this repository's fallback rather than the unknown original one, and XGBoost
-versions differ. The flight-grouped cross-validation is running; its result will be added here.
+a leaky validation set. `model.grouped_cv` is the estimate to use for any further change.
 
 ## Usage
 
@@ -135,8 +139,9 @@ sur un intervalle de vol à partir de la trajectoire ADS-B. Variables de segment
 virages, stabilité), données avion ANP, XGBoost. Meilleure soumission : 262,0 kg (v3, code non conservé). Ce dépôt
 reproduit la v6 (263,8 kg), produite le même jour par le même pipeline. La validation du notebook annonçait 177 kg :
 découpage aléatoire par intervalle (fuite entre intervalles d'un même vol), arrêt précoce sur l'ensemble de
-validation, écrêtage ajusté sur les données de classement, cible filtrée. Le dépôt ajoute une validation croisée
-groupée par vol, qui corrige ces fuites. Les données (Zenodo, CC BY 4.0) et la base ANP ne sont pas redistribuées.
+validation, écrêtage ajusté sur les données de classement. Le dépôt reproduit la v6 à 1,4 kg près (265,2 kg) et
+ajoute une validation croisée groupée par vol : 230,7 ± 20,2 kg, soit environ 60 % de l'écart entre validation et
+classement expliqué par le découpage par intervalle. Les données (Zenodo, CC BY 4.0) et la base ANP ne sont pas redistribuées.
 
 ## License
 
