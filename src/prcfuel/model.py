@@ -9,8 +9,10 @@ Two paths:
 * :func:`grouped_cv` is the corrected estimate: folds grouped by flight (no
   interval of a validation flight is seen in training), clipping thresholds and
   target encoders fitted on the training fold only, early stopping on an inner
-  split of the training fold, and validation on every interval (including
-  those with fuel >= 10 000 kg, which are dropped from training only).
+  split of the training fold. Validation RMSE is reported on all intervals
+  and on intervals below 10 000 kg: ``fuel_train`` contains a few aberrant
+  labels that dominate the first figure, while the ranking ground truth has
+  none, so the second one is the comparable estimate.
 """
 from __future__ import annotations
 
@@ -144,6 +146,7 @@ def grouped_cv(train_feats: pd.DataFrame, perfo: pd.DataFrame, n_splits: int = 5
         model.fit(xf, yf, eval_set=[(xs, ys)], verbose=False)
         p = model.predict(xv)
         rows.append({"fold": k, "n_val": len(yv), "flights_val": va["flight_id"].nunique(),
+                     "n_val_y_ge_10000": int((yv >= Y_MAX_TRAIN).sum()),
                      "rmse": rmse(yv, p), "rmse_y_lt_10000": rmse(yv[yv < Y_MAX_TRAIN], p[yv < Y_MAX_TRAIN]),
                      "best_iteration": getattr(model, "best_iteration", None)})
     return pd.DataFrame(rows)
