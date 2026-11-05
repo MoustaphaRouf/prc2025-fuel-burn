@@ -132,3 +132,38 @@ def read_flight_list(path) -> pd.DataFrame:
     for c in ("takeoff", "landed"):
         f[c] = pd.to_datetime(f[c])
     return f
+
+
+def find(filename: str, root: str | Path) -> Path | None:
+    """First file named ``filename`` under ``root`` (searched recursively), or None."""
+    root = Path(root)
+    direct = root / filename
+    if direct.exists():
+        return direct
+    return next(iter(sorted(root.rglob(filename))), None)
+
+
+def local_or_download(names, root: str | Path, dest: str | Path = "data") -> dict[str, Path]:
+    """Use the copies already under ``root`` (e.g. your Drive) when complete; download the others."""
+    out, missing = {}, []
+    for n in names:
+        p = find(FILES.get(n, n), root)
+        if p is not None and _complete(p):
+            print(f"{FILES.get(n, n)}: using {p}")
+            out[n] = p
+        else:
+            missing.append(n)
+    out.update(download(missing, dest))
+    return out
+
+
+def add_flight_id(feats: pd.DataFrame, fuel: pd.DataFrame) -> pd.DataFrame:
+    """Recover ``flight_id`` from ``idx`` for feature tables saved by the original notebook.
+
+    The notebook wrote features without ``flight_id`` (it was the DataFrame
+    index, dropped on save); ``idx`` is unique in each fuel table, so the
+    flight can be recovered for grouped validation.
+    """
+    if "flight_id" in feats.columns:
+        return feats
+    return feats.merge(fuel[["idx", "flight_id"]], on="idx", how="left", validate="many_to_one")

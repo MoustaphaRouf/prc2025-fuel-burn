@@ -171,3 +171,15 @@ def test_download_resumes_and_detects_truncation(tmp_path, monkeypatch):
     (tmp_path / "flights_rank.zip").write_bytes(payload[:100])   # truncated leftover of a previous run
     out = data.download(["flights_rank"], tmp_path)
     assert out["flights_rank"].read_bytes() == payload and calls["n"] == 2
+
+
+def test_local_files_and_flight_id(tmp_path):
+    from prcfuel import data
+    sub = tmp_path / "DATA"
+    sub.mkdir()
+    fuel = pd.DataFrame({"idx": [0, 1, 2], "flight_id": ["a", "a", "b"], "fuel_kg": [1.0, 2.0, 3.0]})
+    fuel.to_parquet(sub / "fuel_train.parquet")
+    files = data.local_or_download(["fuel_train"], tmp_path, tmp_path / "dl")
+    assert files["fuel_train"] == sub / "fuel_train.parquet"
+    feats = pd.DataFrame({"idx": [2, 0], "y": [3.0, 1.0]})
+    assert data.add_flight_id(feats, fuel)["flight_id"].tolist() == ["b", "a"]
