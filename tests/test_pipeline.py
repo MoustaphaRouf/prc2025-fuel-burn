@@ -55,8 +55,7 @@ def dataset():
     trajs, fuel, flist = synthetic()
     parts = [features.segment_features(features.clean_trajectory(t), fuel, flist) for t in trajs]
     df = pd.concat(parts, ignore_index=True)
-    df["OD"] = df["Origin"] + "-" + df["Dest"]
-    return df, fuel, flist
+    return df, fuel, flist   # without OD, like the feature files saved by the original notebook
 
 
 def test_clean_trajectory_wraps_heading():

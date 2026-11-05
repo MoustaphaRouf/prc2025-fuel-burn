@@ -80,6 +80,13 @@ def make_model(**overrides):
     return XGBRegressor(**{**XGB_PARAMS, **overrides})
 
 
+def with_od(df: pd.DataFrame) -> pd.DataFrame:
+    """Add the origin-destination pair if absent (the original notebook added it after loading features)."""
+    if "OD" not in df.columns:
+        df = df.assign(OD=df["Origin"].astype(str) + "-" + df["Dest"].astype(str))
+    return df
+
+
 def _xy(df: pd.DataFrame):
     return df.drop(columns=[c for c in NON_FEATURES if c in df.columns]), df["y"] if "y" in df else None
 
@@ -89,6 +96,10 @@ def reproduce_v6(train_feats: pd.DataFrame, test_feats: pd.DataFrame, perfo: pd.
     """Notebook procedure, unchanged. Returns (model, validation RMSE, test predictions by idx)."""
     from sklearn.model_selection import train_test_split
 
+    train_feats, test_feats = with_od(train_feats), with_od(test_feats)
+    missing = set(train_feats.columns) - set(test_feats.columns) - {"y"}
+    if missing:
+        raise KeyError(f"columns in training features but not in ranking features: {sorted(missing)}")
     train = clip(train_feats, clip_thresholds(train_feats))
     test = clip(test_feats, clip_thresholds(test_feats))     # NOTE: test clipped with its own quantiles
     train = train[train["y"] < Y_MAX_TRAIN]
@@ -111,6 +122,9 @@ def grouped_cv(train_feats: pd.DataFrame, perfo: pd.DataFrame, n_splits: int = 5
     from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 
     rows = []
+    train_feats = with_od(train_feats)
+    if train_feats["flight_id"].isna().any():
+        raise ValueError("flight_id missing for some rows: grouped folds need it (see data.add_flight_id)")
     groups = train_feats["flight_id"].values
     folds = GroupKFold(n_splits=n_splits).split(train_feats, groups=groups)
     for k, (tr_i, va_i) in enumerate(folds):

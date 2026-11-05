@@ -84,4 +84,6 @@ def physics_features(df: pd.DataFrame, perfo: pd.DataFrame) -> pd.DataFrame:
     df["qbar_load"] = qbar * n_load
     df["Puissance_per_Kg"] = df["VTotal"] * df["gamma"]
     df = df.merge(perfo, on="TypeAC", how="left")
-    return df.replace([np.inf, -np.inf], np.nan).fillna(0)
+    num = df.select_dtypes("number").columns
+    df[num] = df[num].replace([np.inf, -np.inf], np.nan).fillna(0)
+    return df
