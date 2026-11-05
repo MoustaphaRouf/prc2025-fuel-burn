@@ -34,15 +34,79 @@ def url(name: str) -> str:
     return f"https://zenodo.org/records/{ZENODO_RECORD}/files/{FILES.get(name, name)}?download=1"
 
 
+def _complete(p: Path) -> bool:
+    """A downloaded file is usable: zips must have their central directory, parquet files their footer."""
+    if not p.exists() or p.stat().st_size == 0:
+        return False
+    if p.suffix == ".zip":
+        return zipfile.is_zipfile(p)
+    if p.suffix == ".parquet":
+        with open(p, "rb") as f:
+            f.seek(-4, 2)
+            return f.read(4) == b"PAR1"
+    return True
+
+
+def _fetch(src: str, p: Path, retries: int = 20, chunk: int = 1 << 20) -> None:
+    """Download with resume: the large archives are often cut off mid-transfer.
+
+    Data go to ``<name>.part``; each retry asks the server for the remaining
+    bytes only (HTTP Range) and the file is renamed once its size is complete.
+    """
+    import time
+    part = p.with_name(p.name + ".part")
+    total = None
+    for attempt in range(retries):
+        have = part.stat().st_size if part.exists() else 0
+        if total is not None and have >= total:
+            break
+        req = urllib.request.Request(src, headers={"Range": f"bytes={have}-"} if have else {})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                if r.status == 206:
+                    total = int(r.headers["Content-Range"].rsplit("/", 1)[1])
+                    mode = "ab"
+                else:                                   # server ignored the range: start again
+                    total = int(r.headers.get("Content-Length", 0)) or None
+                    mode, have = "wb", 0
+                with open(part, mode) as f:
+                    while True:
+                        b = r.read(chunk)
+                        if not b:
+                            break
+                        f.write(b)
+            if total is None or part.stat().st_size >= total:
+                break
+        except Exception as e:                           # connection reset, timeout, truncated body
+            print(f"{p.name}: interrupted at {part.stat().st_size if part.exists() else 0:,} bytes "
+                  f"({type(e).__name__}), resuming ({attempt + 1}/{retries})")
+            time.sleep(min(5 * (attempt + 1), 60))
+    size = part.stat().st_size
+    if total is not None and size != total:
+        raise IOError(f"{p.name}: {size:,} of {total:,} bytes after {retries} attempts; run again to resume")
+    part.rename(p)
+
+
 def download(names, dest: str | Path = "data") -> dict[str, Path]:
-    """Download the named files (keys of ``FILES``) into ``dest``; skip those already present."""
+    """Download the named files (keys of ``FILES``) into ``dest``.
+
+    Files already present and complete are skipped; a truncated file left by an
+    earlier interrupted run is detected and downloaded again. Interrupted
+    transfers resume where they stopped.
+    """
     dest = Path(dest)
     dest.mkdir(parents=True, exist_ok=True)
     out = {}
     for n in names:
         p = dest / FILES.get(n, n)
-        if not p.exists():
-            urllib.request.urlretrieve(url(n), p)
+        if not _complete(p):
+            if p.exists():
+                print(f"{p.name}: incomplete file found, downloading again")
+                p.unlink()
+            print(f"downloading {p.name} ...")
+            _fetch(url(n), p)
+            if not _complete(p):
+                raise IOError(f"{p.name}: downloaded file is not valid")
         out[n] = p
     return out
 

@@ -130,3 +130,44 @@ def test_score_matches_on_idx():
     sub = pd.DataFrame({"idx": [3, 1], "fuel_kg": [310.0, 90.0]})
     s = score.score(sub, truth)
     assert s["matched"] == 2 and s["rmse_kg"] == pytest.approx(10.0)
+
+
+def test_download_resumes_and_detects_truncation(tmp_path, monkeypatch):
+    import io
+    import urllib.request
+    import zipfile
+    from prcfuel import data
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("a.parquet", b"x" * 5000)
+    payload = buf.getvalue()
+    calls = {"n": 0}
+
+    class Resp(io.BytesIO):
+        def __init__(self, body, status, headers):
+            super().__init__(body)
+            self.status, self.headers = status, headers
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        rng = req.headers.get("Range")
+        start = int(rng.split("=")[1].rstrip("-")) if rng else 0
+        body = payload[start:]
+        if calls["n"] == 1:                              # first transfer cut off halfway
+            body = body[: len(body) // 2]
+        return Resp(body, 206 if rng else 200,
+                    {"Content-Range": f"bytes {start}-{len(payload) - 1}/{len(payload)}",
+                     "Content-Length": str(len(payload))})
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    (tmp_path / "flights_rank.zip").write_bytes(payload[:100])   # truncated leftover of a previous run
+    out = data.download(["flights_rank"], tmp_path)
+    assert out["flights_rank"].read_bytes() == payload and calls["n"] == 2
