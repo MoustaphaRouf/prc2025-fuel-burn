@@ -64,9 +64,17 @@ fitted on the training fold only, early stopping on an inner flight-grouped spli
 
 ## Status
 
-The code is a faithful refactor of the v6 notebook, tested on synthetic trajectories in CI. It has **not yet been
-run end to end on the challenge data**: whether it reproduces 263.8 kg, and what the grouped cross-validation gives,
-will be reported here once [`notebooks/reproduce_colab.ipynb`](notebooks/reproduce_colab.ipynb) has been run.
+The code is a faithful refactor of the v6 notebook, tested on synthetic trajectories in CI, and was run on the
+challenge data in Colab on 5 November 2026 from the v6 feature files saved during the competition:
+
+| | Original notebook | This repository |
+|---|---|---|
+| Validation RMSE, row-level split (kg) | 177.2 | 179.9 |
+| Ranking RMSE (kg) | 263.8 (official) | 265.2 |
+
+The refactor reproduces the v6 score to within 1.4 kg (0.5 %). The remaining gap is expected: the 131 intervals
+without trajectory points are filled by this repository's fallback rather than the unknown original one, and XGBoost
+versions differ. The flight-grouped cross-validation is running; its result will be added here.
 
 ## Usage
 

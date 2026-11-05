@@ -173,7 +173,7 @@ def fallback_predictions(intervals: pd.DataFrame, fuel_train: pd.DataFrame, flig
 def submission(intervals: pd.DataFrame, model_pred: pd.Series, fallback: pd.Series) -> pd.DataFrame:
     """Submission frame: model prediction where available, fallback elsewhere."""
     out = intervals.copy()
-    out["fuel_kg"] = out["idx"].map(model_pred)
+    out["fuel_kg"] = out["idx"].map(model_pred).astype("float64")
     missing = out["fuel_kg"].isna()
     out.loc[missing, "fuel_kg"] = out.loc[missing, "idx"].map(fallback)
     out.attrs["n_fallback"] = int(missing.sum())
